@@ -88,6 +88,7 @@ class DiceLoss(nn.Module):
 
 
 Agricultural_classes=8
+CIFAR_CLASSES = 10
 
 import torch
 import os
@@ -127,9 +128,9 @@ def main():
     torch.manual_seed(args.seed)
     device=args.device
     logging.info("args = %s", args)
-    criterion= nn.BCEWithLogitsLoss().to(device)
+    criterion = nn.CrossEntropyLoss().to(device)
     
-    model = Network(args.init_channels, Agricultural_classes , args.layers, criterion, device=args.device, snn_step=args.snn_step)
+    model = Network(args.init_channels, CIFAR_CLASSES , args.layers, criterion, device=args.device, snn_step=args.snn_step)
     model.to(device)
 
     logging.info("param size = %fMB", utils.count_parameters_in_MB(model))
@@ -141,28 +142,37 @@ def main():
         weight_decay=args.weight_decay
     )
 
-    full_dataset = CustomPTSegmentationDataset(root_dir="../../../Agriculture-Vision-2021_processed_zip/trainrandcrop256/")
-    indices = list(range(5000))
-    np.random.shuffle(indices)
-    train_indices = indices[:2500]
-    val_indices = indices[4500:5000]
+    # full_dataset = CustomPTSegmentationDataset(root_dir="../../../Agriculture-Vision-2021_processed_zip/trainrandcrop256/")
+    # indices = list(range(5000))
+    # np.random.shuffle(indices)
+    # train_indices = indices[:2500]
+    # val_indices = indices[4500:5000]
 
-    train_queue = torch.utils.data.DataLoader(full_dataset, batch_size=args.batch_size,
-        sampler=torch.utils.data.SubsetRandomSampler(train_indices), num_workers=2)
-    valid_queue = torch.utils.data.DataLoader(full_dataset, batch_size=args.batch_size,
-        sampler=torch.utils.data.SubsetRandomSampler(val_indices), num_workers=2)
+    # train_queue = torch.utils.data.DataLoader(full_dataset, batch_size=args.batch_size,
+    #     sampler=torch.utils.data.SubsetRandomSampler(train_indices), num_workers=2)
+    # valid_queue = torch.utils.data.DataLoader(full_dataset, batch_size=args.batch_size,
+    #     sampler=torch.utils.data.SubsetRandomSampler(val_indices), num_workers=2)
 
-    # train_queue = torch.utils.data.DataLoader(
-    #     train_data, batch_size=args.batch_size,
-    #     sampler=torch.utils.data.sampler.SubsetRandomSampler(indices[:split]),
-    #     pin_memory=True, num_workers=2
-    # )
 
-    # valid_queue = torch.utils.data.DataLoader(
-    #     train_data, batch_size=args.batch_size,
-    #     sampler=torch.utils.data.sampler.SubsetRandomSampler(indices[split:num_train]),
-    #     pin_memory=True, num_workers=2
-    # )
+
+    train_transform, valid_transform = utils._data_transforms_cifar10(args)
+    train_data = dset.CIFAR10(root=args.data, train=True, download=True, transform=train_transform)
+
+    num_train = len(train_data)
+    # num_train=500
+    indices = list(range(num_train))
+    split = int(np.floor(args.train_portion * num_train))
+
+    train_queue = torch.utils.data.DataLoader(
+      train_data, batch_size=args.batch_size,
+sampler=torch.utils.data.sampler.SubsetRandomSampler(indices[:split]),
+      pin_memory=True, num_workers=2)
+
+    valid_queue = torch.utils.data.DataLoader(
+      train_data, batch_size=args.batch_size,
+      sampler=torch.utils.data.sampler.SubsetRandomSampler(indices[split:num_train]),
+      pin_memory=True, num_workers=2)
+
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, float(args.epochs), eta_min=args.learning_rate_min
@@ -175,7 +185,6 @@ def main():
     for epoch in range(args.epochs):
         # Bắt đầu mỗi epoch, cập nhật scheduler
         scheduler.step()
-        # Với PyTorch mới, nên dùng get_last_lr()
         lr = scheduler.get_last_lr()[0] if hasattr(scheduler, "get_last_lr") else scheduler.get_lr()[0]
 
         logging.info('epoch %d lr %e', epoch, lr)
@@ -187,23 +196,28 @@ def main():
         logging.info(F.softmax(model.alphas_normal, dim=-1))
         logging.info(F.softmax(model.alphas_reduce, dim=-1))
 
-        # training
-        train_acc,train_F1, train_obj , macs = train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, device,args)
-        macs=float(macs)
-        logging.info("train mIoU: %.4f | train F1: %.4f  | Loss: %.4f | Avg MACs: %s", train_acc,train_F1, train_obj , macs)
+        # # training
+        # train_acc,train_F1, train_obj , macs = train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, device,args)
+        # macs=float(macs)
+        # logging.info("train mIoU: %.4f | train F1: %.4f  | Loss: %.4f | Avg MACs: %s", train_acc,train_F1, train_obj , macs)
 
-        # validation
-        valid_acc,valid_F1, valid_obj, valid_macs = infer(valid_queue, model, criterion, device)
+        # # validation
+        # valid_acc,valid_F1, valid_obj, valid_macs = infer(valid_queue, model, criterion, device)
         # valid_macs=format_macs(valid_macs)
-        logging.info("Validation mIoU: %.4f | Val F1: %.4f  | Loss: %.4f | Avg MACs: %s", valid_acc,valid_F1,  valid_obj, valid_macs)
+        train_top1, train_top5, train_objs, energy =train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, device,args)
+        logging.info("train Top 1: %.4f | train Top 5: %.4f  | Loss: %.4f | Total energy: %s", train_top1, train_top5, train_objs, energy)
+
+        valid_top1, valid_top5, valid_objs, =infer(valid_queue, model, criterion, device)
+        
+        logging.info("Validation Top 1: %.4f | Val Top 5: %.4f  | Loss: %.4f",valid_top1,  valid_top5, valid_objs)
         wandb.log({
-            "epoch/train_mIoU": train_acc,
-            "epoch/train_loss": train_obj,
-            "epoch/train_F1":train_F1,
-            "epoch/val_mIoU": valid_acc,
-            "epoch/val_loss": valid_obj,
-            "epoch/valid_F1":valid_F1,
-            "epoch/train_energy": macs,
+            "epoch/train_Top1": train_top1,
+            "epoch/train_loss": train_objs,
+            "epoch/train_Top5":train_top5,
+            "epoch/val_Top1": valid_top1,
+            "epoch/val_loss": valid_objs,
+            "epoch/valid_top5":valid_top5,
+            "epoch/train_energy": energy,
             "epoch": epoch
         })
 
@@ -229,7 +243,10 @@ def compute_metrics(preds, labels, threshold=0.5):
 
 def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, device, args):
     objs = utils.AvgrageMeter()
-    metrics_avg = {'accuracy': utils.AvgrageMeter(), 'f1_macro': utils.AvgrageMeter()}
+    # metrics_avg = {'accuracy': utils.AvgrageMeter(), 'f1_macro': utils.AvgrageMeter()}
+    objs = utils.AvgrageMeter()
+    top1 = utils.AvgrageMeter()
+    top5 = utils.AvgrageMeter()
 
     model.train()
     valid_iter = iter(valid_queue)
@@ -249,50 +266,67 @@ def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, 
 
         input_search = input_search.to(device)
         target_search = target_search.to(device)
-
+        rate=[0.9,0.05] #rate of loss accuracy and energy respectively
         # Architect step
-        architect.step(input_train, target_train, input_search, target_search, lr, optimizer, unrolled=args.unrolled)
+        architect.step(input_train, target_train, input_search, target_search, lr, optimizer, unrolled=args.unrolled, rate)
 
+        
         optimizer.zero_grad()
         logits, energy = model(input_train)
-
-
         loss_task = criterion(logits, target_train)
-
-    
-        loss_total=loss_task
-        loss_total.backward()
-
+        loss_task.backward()
         optimizer.step()
-        metrics = compute_metrics(logits, target_train)
-        objs.update(loss_total.item(), n)
-        metrics_avg['accuracy'].update(metrics['accuracy'], n)
-        metrics_avg['f1_macro'].update(metrics['f1_macro'], n)
 
+        prec1, prec5 = utils.accuracy(logits, target_train, topk=(1, 5))
+        objs.update(loss_task.item(), n)
+        top1.update(prec1.item(), n)
+        top5.update(prec5.item(), n)
         wandb.log({
-            "train/step_loss": loss_total.item(),
-            "train/step_accuracy": metrics['accuracy'],
-            "train/step_f1_macro": metrics['f1_macro'],
+            "train/step_loss": objs.avg,
+            "train/top_1": top1.avg,
+            "train/top_5": top5.avg,
             "train/step_energy": energy,
             "train/lr": lr
         })
 
+        
+
+        
+        # metrics = compute_metrics(logits, target_train)
+        # objs.update(loss_total.item(), n)
+        # metrics_avg['accuracy'].update(metrics['accuracy'], n)
+        # metrics_avg['f1_macro'].update(metrics['f1_macro'], n)
+
+        # wandb.log({
+        #     "train/step_loss": loss_total.item(),
+        #     "train/step_accuracy": metrics['accuracy'],
+        #     "train/step_f1_macro": metrics['f1_macro'],
+        #     "train/step_energy": energy,
+        #     "train/lr": lr
+        # })
+
+        
+
         pbar.set_postfix({
             "loss_task": objs.avg,
-            "accuracy": metrics_avg['accuracy'].avg,
-            "f1_macro": metrics_avg['f1_macro'].avg,
+            "accuracy": top5.avg,
+            # "f1_macro": metrics_avg['f1_macro'].avg,
             "energy": f"{energy}"
         })
 
-    return metrics_avg['accuracy'].avg, metrics_avg['f1_macro'].avg, objs.avg, energy
+    # return metrics_avg['accuracy'].avg, metrics_avg['f1_macro'].avg, objs.avg, energy
+    return top1.avg, top5.avg, objs.avg, energy
 
 
 
 
 
 def infer(valid_queue, model, criterion, device):
+    # objs = utils.AvgrageMeter
     objs = utils.AvgrageMeter()
-    metrics_avg = {'accuracy': utils.AvgrageMeter(), 'f1_macro': utils.AvgrageMeter()}
+    top1 = utils.AvgrageMeter()
+    top5 = utils.AvgrageMeter()
+    # metrics_avg = {'accuracy': utils.AvgrageMeter(), 'f1_macro': utils.AvgrageMeter()}
 
     model.eval()
 
@@ -303,23 +337,35 @@ def infer(valid_queue, model, criterion, device):
             input_valid = input_valid.to(device)
             target_valid = target_valid.to(device)
 
-            logits,energy = model(input_valid)
+            logits,_ = model(input_valid)
             loss = criterion(logits, target_valid)
 
-            metrics = compute_metrics(logits, target_valid)
+
+            prec1, prec5 = utils.accuracy(logits, target_valid, topk=(1, 5))
             n = input_valid.size(0)
             objs.update(loss.item(), n)
-            metrics_avg['accuracy'].update(metrics['accuracy'], n)
-            metrics_avg['f1_macro'].update(metrics['f1_macro'], n)
+            top1.update(prec1.item(), n)
+            top5.update(prec5.item(), n)
 
+            # metrics = compute_metrics(logits, target_valid)
+            # n = input_valid.size(0)
+            # objs.update(loss.item(), n)
+            # metrics_avg['accuracy'].update(metrics['accuracy'], n)
+            # metrics_avg['f1_macro'].update(metrics['f1_macro'], n)
+
+            # pbar.set_postfix({
+            #     "val_loss": objs.avg,
+            #     "val_accuracy": metrics_avg['accuracy'].avg,
+            #     "val_f1_macro": metrics_avg['f1_macro'].avg,
+            # })
+    
             pbar.set_postfix({
                 "val_loss": objs.avg,
-                "val_accuracy": metrics_avg['accuracy'].avg,
-                "val_f1_macro": metrics_avg['f1_macro'].avg,
-                "total_mac": energy
+                "val_accuracy": top1.avg,
             })
 
-    return metrics_avg['accuracy'].avg, metrics_avg['f1_macro'].avg, objs.avg, energy
+    # return metrics_avg['accuracy'].avg, metrics_avg['f1_macro'].avg, objs.avg
+    return top1.avg, top5.avg, objs.avg
 
 def format_macs(value):
     if value >= 1e9:

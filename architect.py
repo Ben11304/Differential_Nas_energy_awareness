@@ -55,7 +55,7 @@ class Architect(object):
         return unrolled_model
 
     def step(self, input_train, target_train, input_valid, target_valid, 
-             eta, network_optimizer, unrolled):
+             eta, network_optimizer, unrolled,rate):
         """
         Bước update alpha (arch_parameters):
           - unrolled=True: dùng unrolled optimization (1 step SGD ảo).
@@ -69,10 +69,10 @@ class Architect(object):
                 eta, network_optimizer
             )
         else:
-            self._backward_step(input_valid, target_valid)
+            self._backward_step(input_valid, target_valid,rate)
         self.optimizer.step()
 
-    def _backward_step(self, input_valid, target_valid):
+    def _backward_step(self, input_valid, target_valid, rate=[0.9,0.1]):
         """
         Tính gradient alpha đơn giản: loss trên batch valid wrt alpha
         """
@@ -86,9 +86,9 @@ class Architect(object):
         loss_task_normalized = loss_task/self.max_seen_loss
         
         # output,energy= self.model(input_valid)
-        loss=0.6*loss_task_normalized+0.4*energy_normalized
-        print(f"-----------------{loss_task}------------")
-        print(f"-----------------{loss_energy}------------")
+        loss=rate[0]*loss_task_normalized+rate[1]*energy_normalized
+        # print(f"-----------------{loss_task}------------")
+        # print(f"-----------------{loss_energy}------------")
         # loss=energy_normalized
         # loss=loss_task_normalized
         loss.backward()

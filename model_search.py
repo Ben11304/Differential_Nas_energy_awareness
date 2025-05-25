@@ -220,11 +220,12 @@ class Network(nn.Module):
         #     nn.Conv2d(3, C_curr, 3, padding=1, bias=False),
         #     nn.BatchNorm2d(C_curr)
         # )
-        self.stem =Stem(C_out=C_curr)
-        # self.stem=nn.Sequential(
-        #     nn.Conv2d(4, C_curr, 3, padding=1, bias=False),  # đổi 3 thành 4
-        #     nn.BatchNorm2d(C_curr)
-        # )
+        # self.stem =Stem(C_out=C_curr)
+        self.stem = nn.Sequential(
+          nn.Conv2d(3, C_curr, 3, padding=1, bias=False),
+          nn.BatchNorm2d(C_curr)
+        )
+        
 
 
         C_prev_prev, C_prev, C_curr = C_curr, C_curr, C
@@ -247,6 +248,7 @@ class Network(nn.Module):
             C_prev_prev, C_prev = C_prev, multiplier * C_curr
 
         self.head = ClassificationHead(C_prev=C_prev, num_classes=num_classes).to(self._device)
+        # self.head=nn.Linear(C_prev, num_classes)
 
 
         # Khởi tạo alpha
