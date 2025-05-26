@@ -6,10 +6,11 @@ import pandas as pd
 from ptflops import get_model_complexity_info
 from dl_energy_estimator.energy_estimate import calculate_energy
 import math
+import utils
 # import wandb
 
 # wandb.init(project="nas_energy_monitor", name="energy_log_example")
-
+from utils import count_module_macs
 
 
 OPS = {
@@ -24,8 +25,7 @@ OPS = {
   'dil_conv_5x5' : lambda C, stride, affine: DilConv(C, C, 5, stride, 4, 2, affine=affine),
     'conv_1x1': lambda C, stride, affine: Conv1x1(C, stride, affine),
     'conv_3x3': lambda C, stride, affine: Conv3x3(C, stride, affine),
-
-     'grouped_conv': lambda C, stride, affine: GroupedConv(C, C, groups=4, stride=stride, padding=1, affine=affine),
+    'grouped_conv': lambda C, stride, affine: GroupedConv(C, C, groups=4, stride=stride, padding=1, affine=affine),
     'alt_sep_conv': lambda C, stride, affine: AltDepthwiseSeparableConv(C, kernel_size=3, stride=stride, padding=1, affine=affine),
     'batchnorm': lambda C, stride, affine: OnlyBN(C, affine),
     'relu': lambda C, stride, affine: OnlyReLU()
@@ -132,22 +132,6 @@ class GroupedConv(nn.Module):
 
 
 
-# sample = pd.DataFrame([{
-#     "batch_size": 123,
-#     "image_size": 127,
-#     "kernel_size": 7,
-#     "input_size":4,
-#     "output_size":2,
-#     "in_channels": 80,
-#     "out_channels": 29,
-#     "stride": 1,
-#     "padding": 2,
-#     "attributed": "conv2d",
-#     "sub_attributed": "tanh",
-#     "macs":2.18534484e+11
-# }])
-
-
 
 def energy(op,x):
     mac_list = []
@@ -233,50 +217,6 @@ def create_energy_sample(layer, input_tensor):
     return pd.DataFrame([sample])
 
 
-def count_module_macs(module, data_dims) -> int:
-    """
-    Computes the MACs for a given PyTorch module.
-
-    Args:
-        module (torch.nn.Module): the PyTorch module for which the MACs should be counted.
-        data_dims (tuple): the dimensions of the input data (batch_size, channels, height, width).
-
-    Returns:
-        int: number of MACs for the given module.
-    """
-    
-    # BatchNorm2d doesn't contribute to MACs
-    if isinstance(module, torch.nn.BatchNorm2d):
-        print("BatchNorm2d detected")
-        return 0
-
-    # Manually calculate for MaxPool2d
-    if isinstance(module, torch.nn.MaxPool2d):
-        s = module.stride
-        k = module.kernel_size
-        p = module.padding
-
-        # Ensure kernel size and stride are integers
-        k = k if isinstance(k, int) else k[0]
-        s = s if isinstance(s, int) else s[0]
-        p = p if isinstance(p, int) else p[0]
-
-        out_h = math.floor(((data_dims[2] - k + (2 * p)) / s) + 1)
-        out_w = math.floor(((data_dims[3] - k + (2 * p)) / s) + 1)
-        flops = k * k * out_h * out_w * data_dims[1] * data_dims[0]
-        macs = flops / 2  # MaxPool uses FLOPs not MACs directly
-        return int(macs)
-
-    # General case: use ptflops
-    try:
-        macs, params = get_model_complexity_info(
-            module, tuple(data_dims[1:]), as_strings=False, print_per_layer_stat=False
-        )
-        macs = 0 if macs is None else macs
-    except Exception as e:
-        print(f"Error getting MACs for module {module.__class__.__name__}: {e}")
-        macs = 0
-    return int(macs * data_dims[0])
 
 
 
@@ -343,180 +283,7 @@ class MaxPoolMAC(nn.Module):
 
 
 
-class SNNDense(nn.Module):
-    """
-    Dense spiking neuron block (auto flatten + lazy input_dim inference).
-    Có thể dùng cho cả [B, C, H, W] hoặc [B, D].
-    """
-    def __init__(self, output_dim, num_steps=5, beta=0.95):
-        super(SNNDense, self).__init__()
-        self.output_dim = output_dim
-        self.num_steps = num_steps
-        self.beta = beta
 
-        self.fc = None  # lazy init
-        self.lif = snn.Leaky(beta=self.beta, learn_beta=True)
-
-    def forward(self, x):
-        if x.ndim == 4:
-            x = torch.flatten(x, start_dim=1)  # [B, C, H, W] -> [B, D]
-
-        if self.fc is None:
-            input_dim = x.size(1)
-            self.fc = nn.Linear(input_dim, self.output_dim).to(x.device)
-
-        mem = self.lif.init_leaky()
-        spk_acc = 0
-
-        for _ in range(self.num_steps):
-            cur_input = self.fc(x)
-            spk, mem = self.lif(cur_input, mem)
-            spk_acc += spk
-
-        return spk_acc / self.num_steps
-
-
-
-
-class SNNMultiStepConv(nn.Module):
-    def __init__(self, C_in, C_out, kernel_size=3, stride=1, padding=1,
-                 num_steps=5, beta=0.5, affine=True):
-        super(SNNMultiStepConv, self).__init__()
-        self.num_steps = num_steps
-        self.C_in = C_in
-        self.C_out = C_out
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
-
-        # Spiking neurons
-        self.lif1 = snn.Leaky(beta=beta, threshold=0.9)
-        self.lif2 = snn.Leaky(beta=beta, threshold=0.9)
-        self.lif3 = snn.Leaky(beta=beta, threshold=0.9)
-
-        # Convolution layers moved AFTER spiking
-        self.depthwise = nn.Conv2d(C_in, C_in, kernel_size=kernel_size, stride=stride,
-                                   padding=padding, groups=C_in, bias=False)
-        self.pointwise = nn.Conv2d(C_in, C_out, kernel_size=1, bias=False)
-        self.final_conv = nn.Conv2d(C_out, C_out, kernel_size=1, bias=False)
-        self.bn_out = nn.BatchNorm2d(C_out, affine=affine)
-
-        self.MACs = 5  # MAC counter
-
-    def forward(self, x):
-        mem1 = self.lif1.init_leaky()
-        mem2 = self.lif2.init_leaky()
-        mem3 = self.lif3.init_leaky()
-
-        B, _, H, W = x.shape
-        spk_acc = 0
-        total_spikes = 0
-
-        for _ in range(self.num_steps):
-            spk1, mem1 = self.lif1(x, mem1)
-            spk2, mem2 = self.lif2(spk1, mem2)
-            spk3, mem3 = self.lif3(spk2, mem3)
-
-            # Only compute conv on spikes
-            out = self.depthwise(spk3)
-            out = self.pointwise(out)
-            out = self.final_conv(out)
-            out = self.bn_out(out)
-            spk_acc += out
-
-            total_spikes += spk3.detach().float().sum()
-
-        avg_spike_rate = total_spikes / (B * self.C_in * H * W * self.num_steps)
-
-        # MAC estimation: only computed when spikes occur
-        expected_spikes = avg_spike_rate * B * self.C_in * H * W * self.num_steps
-        dw_macs = expected_spikes * (self.kernel_size ** 2)
-        pw_macs = expected_spikes * self.C_out
-        final_macs = expected_spikes * self.C_out
-        self.MACs = dw_macs + pw_macs + final_macs
-        # print(f"[Optimized SNNMultiStepConv] 🔥 Avg Spike Rate: {avg_spike_rate:.4f}, MACs: {self.MACs:.2f}")
-
-        return spk_acc / self.num_steps
-
-
-class SpikingSepConv(nn.Module):
-    def __init__(self, C, kernel_size=3, stride=1, padding=1, num_steps=3):
-        super().__init__()
-        self.num_steps = num_steps
-        self.depthwise = nn.Conv2d(C, C, kernel_size, stride, padding, groups=C)
-        self.pointwise = nn.Conv2d(C, C, 1)
-        self.lif = snn.Leaky(beta=0.9)
-
-    def forward(self, x):
-        mem = self.lif.init_leaky()
-        out_acc = 0
-        for _ in range(self.num_steps):
-            spk, mem = self.lif(x, mem)
-            out = self.pointwise(self.depthwise(spk))
-            out_acc += out
-        return out_acc / self.num_steps
-
-
-
-class SNN_IF_Conv(nn.Module):
-    def __init__(self, C_in, C_out, kernel_size, stride, padding, affine=True):
-        super().__init__()
-        self.if_neuron = snn.Leaky(beta=0.0)
-        self.conv = nn.Conv2d(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding)
-        self.bn = nn.BatchNorm2d(C_out, affine=affine)
-
-    def forward(self, x):
-        # spk = self.if_neuron(x)
-        spk_tuple = self.if_neuron(x)
-        if isinstance(spk_tuple, tuple):
-            spk = spk_tuple[0]
-        else:
-            spk = spk_tuple
-        out = self.conv(spk)
-
-        out = self.conv(spk)
-        return self.bn(out)
-
-
-class SNNConv(nn.Module):
-    """
-    Ví dụ block spiking: [Spiking -> Conv(Depthwise) -> Conv(Pointwise) -> BN]
-    thay thế ReLU bằng neuron snntorch (Leaky) cho single-step.
-    """
-    def __init__(self, C_in, C_out, kernel_size, stride, padding, affine=True):
-        super(SNNConv, self).__init__()
-        # Khởi tạo neuron spiking, dùng spike_grad thay vì surrogate_function (tương thích phiên bản cũ hơn)
-        self.lif = snn.Leaky(
-            beta=0.9,           
-            threshold=1.0,      
-            spike_grad=surrogate.fast_sigmoid(), 
-            learn_threshold=False
-        )
-
-        # Tương tự SepConv (Depthwise + Pointwise)
-        self.depthwise = nn.Conv2d(
-            C_in, C_in, kernel_size=kernel_size, 
-            stride=stride, padding=padding, groups=C_in, bias=False
-        )
-        self.pointwise = nn.Conv2d(
-            C_in, C_out, kernel_size=1, padding=0, bias=False
-        )
-        self.bn = nn.BatchNorm2d(C_out, affine=affine)
-
-    def forward(self, x):
-        # Single-step spiking: lif(x) có thể trả về:
-        #   - 1 tensor (spk), hoặc
-        #   - 1 tuple (spk, mem)
-        spk = self.lif(x)
-        
-        # Nếu spk là tuple, chỉ lấy phần tử đầu (spike)
-        if isinstance(spk, tuple):
-            spk = spk[0]
-
-        out = self.depthwise(spk)
-        out = self.pointwise(out)
-        out = self.bn(out)
-        return out
 
 
 class ReLUConvBN(nn.Module):
@@ -545,7 +312,7 @@ class DilConv(nn.Module):
     self.stride = stride
     self.padding = padding
     self.dilation = dilation
-    self.MACs = 5  # 📌 MAC counter
+    self.MACs = 5  
     self.op = nn.Sequential(
         nn.ReLU(inplace=False),
         nn.Conv2d(C_in, C_in, kernel_size=kernel_size, stride=stride,
@@ -555,40 +322,15 @@ class DilConv(nn.Module):
     )
     self.MACs = 0
     self.mac_list = [] 
-    self.energy_list = [] # list of MACs for each sublayer
+    self.energy_list = []
     self.energy_flag = 0
     self.energy=0
 
   def forward(self, x):
     out = self.op(x)
-    # if self.energy_flag == 0:
-    #     self.mac_list = []
-    #     self.energy_list = []
-    #     current_x = x.clone()  # giữ tensor đang được truyền
-    #     for layer in self.op:
-    #         sample_df = create_energy_sample(layer, current_x)
-    #         dummy_model = nn.Sequential(layer)
-    #         mac = count_module_macs(dummy_model, current_x.shape)
-    #         self.mac_list.append(mac)
-    #         if sample_df is not None:
-    #             sample_df["macs"]=mac
-    #             predicted_energy = calculate_energy(sample_df)
-    #             self.energy_list.append(predicted_energy)
-        
-    #                 # forward để cập nhật shape
-    #         with torch.no_grad():
-    #             current_x = layer(current_x)
-    # self.energy_flag = 1
-    # self.energy = sum(self.energy_list)
-    # # print(f"total energy {self.energy}")
-    # self.MACs = sum(self.mac_list)
     if self.energy_flag == 0:
             self.energy,self.MACs=energy(self.op,x)
             self.energy_flag = 1
-    # Tính MACs
-    # H_out, W_out = out.shape[2], out.shape[3]
-    # self.MACs = H_out * W_out * (self.C_in * self.kernel_size ** 2 + self.C_in * self.C_out)
-
     return out
 
 
@@ -677,7 +419,7 @@ class FactorizedReduce(nn.Module):
             self.mac_list = []
             self.energy_list = []
             sample_df = create_energy_sample(self.relu, x)
-            mac = count_module_macs(self.relu, x.shape)
+            mac = utils.count_module_macs(self.relu, x.shape)
             self.mac_list.append(mac)
             if sample_df is not None:
                 sample_df["macs"]=mac
@@ -686,7 +428,7 @@ class FactorizedReduce(nn.Module):
             x = self.relu(x)
 
             sample_df = create_energy_sample(self.conv_1, x)
-            mac = count_module_macs(self.conv_1, x.shape)
+            mac = utils.count_module_macs(self.conv_1, x.shape)
             self.mac_list.append(mac)
             if sample_df is not None:
                 sample_df["macs"]=mac
@@ -694,7 +436,7 @@ class FactorizedReduce(nn.Module):
                 self.energy_list.append(predicted_energy)
 
             sample_df = create_energy_sample(self.conv_2, x[:, :, 1:, 1:])
-            mac = count_module_macs(self.conv_2, x[:, :, 1:, 1:].shape)
+            mac = utils.count_module_macs(self.conv_2, x[:, :, 1:, 1:].shape)
             self.mac_list.append(mac)
             if sample_df is not None:
                 sample_df["macs"]=mac
@@ -712,28 +454,6 @@ class FactorizedReduce(nn.Module):
         out = torch.cat([self.conv_1(x), self.conv_2(x[:, :, 1:, 1:])], dim=1)
         out = self.bn(out)
         return out
-
-    # if self.energy_flag == 0:
-    #     self.mac_list = []
-    #     self.energy_list = []
-    #     current_x = x.clone()  # giữ tensor đang được truyền
-    #     for layer in self.op:
-    #         sample_df = create_energy_sample(layer, current_x)
-    #         dummy_model = nn.Sequential(layer)
-    #         mac = count_module_macs(dummy_model, current_x.shape)
-    #         self.mac_list.append(mac)
-    #         if sample_df is not None:
-    #             sample_df["macs"]=mac
-    #             predicted_energy = calculate_energy(sample_df)
-    #             self.energy_list.append(predicted_energy)
-        
-    #                 # forward để cập nhật shape
-    #         with torch.no_grad():
-    #             current_x = layer(current_x)
-    # self.energy_flag = 1
-    # self.energy = sum(self.energy_list)
-    # # print(f"total energy {self.energy}")
-    # self.MACs = sum(self.mac_list)
 
 
 

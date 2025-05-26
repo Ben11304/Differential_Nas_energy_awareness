@@ -1,0 +1,15 @@
+{"time":"2025-05-25T17:37:58.62093+07:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/Users/duongviethuy/Working_space/Nas_energy/Differential_Nas_energy_awareness/wandb/run-20250525_173758-qo6fjvrm/logs/debug-core.log"}
+{"time":"2025-05-25T17:37:59.156688+07:00","level":"INFO","msg":"created new stream","id":"qo6fjvrm"}
+{"time":"2025-05-25T17:37:59.156734+07:00","level":"INFO","msg":"stream: started","id":"qo6fjvrm"}
+{"time":"2025-05-25T17:37:59.156752+07:00","level":"INFO","msg":"writer: Do: started","stream_id":"qo6fjvrm"}
+{"time":"2025-05-25T17:37:59.156772+07:00","level":"INFO","msg":"handler: started","stream_id":"qo6fjvrm"}
+{"time":"2025-05-25T17:37:59.157088+07:00","level":"INFO","msg":"sender: started","stream_id":"qo6fjvrm"}
+{"time":"2025-05-25T17:37:59.529245+07:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-25T17:38:00.094913+07:00","level":"INFO","msg":"stream: closing","id":"qo6fjvrm"}
+{"time":"2025-05-25T17:38:00.095092+07:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-25T17:38:00.095204+07:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-25T17:38:01.52026+07:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-25T17:38:01.927864+07:00","level":"INFO","msg":"sender: closed","stream_id":"qo6fjvrm"}
+{"time":"2025-05-25T17:38:01.927883+07:00","level":"INFO","msg":"handler: closed","stream_id":"qo6fjvrm"}
+{"time":"2025-05-25T17:38:01.92791+07:00","level":"INFO","msg":"writer: Close: closed","stream_id":"qo6fjvrm"}
+{"time":"2025-05-25T17:38:01.928262+07:00","level":"INFO","msg":"stream: closed","id":"qo6fjvrm"}

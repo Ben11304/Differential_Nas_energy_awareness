@@ -305,109 +305,51 @@ def compute_modified_miou(pred_tensor, gt_tensor, num_classes=9):
     return mIoU
 
 
+def count_module_macs(module, data_dims) -> int:
+    """
+    Computes the MACs for a given PyTorch module.
+
+    Args:
+        module (torch.nn.Module): the PyTorch module for which the MACs should be counted.
+        data_dims (tuple): the dimensions of the input data (batch_size, channels, height, width).
+
+    Returns:
+        int: number of MACs for the given module.
+    """
     
-    # # Add background
-    # background = (gt_tensor.sum(dim=1, keepdim=True) == 0).long()
-    
-    # print(f"background {background.unique()}")
-    # gt_binary = torch.cat([gt_tensor, background], dim=1).long()
-    # if torch.any(gt_binary.sum(dim=1) < 1e-6):
-    #     raise ValueError("Some pixels in gt_binary have no labels, even after adding background")
+    # BatchNorm2d doesn't contribute to MACs
+    if isinstance(module, torch.nn.BatchNorm2d):
+        print("BatchNorm2d detected")
+        return 0
 
-    # # Process pred_tensor with softmax and add background
-    # pred_softmax = torch.softmax(pred_tensor, dim=1)
-    # pred_binary = (pred_softmax > 0.9).float()  # Apply threshold to create binary predictions
-    # background_pred = (pred_binary.sum(dim=1, keepdim=True) == 0).float()  # 1 if no class > 0.5
-    # pred_tensor = torch.cat([pred_binary, background_pred], dim=1).float()
-    # if torch.any(pred_tensor.sum(dim=1) == 0):
-    #     raise ValueError("Some pixels in pred_tensor have no labels, even after adding background")
-    # # Convert predictions
-    # if pred_tensor.dim() == 4 and pred_tensor.shape[1] == num_classes:
-    #     pred_labels = torch.argmax(pred_tensor, dim=1)
-    # elif pred_tensor.dim() == 3 and pred_tensor.shape[1:] == (H, W):
-    #     pred_labels = pred_tensor
-    # else:
-    #     raise ValueError(f"Unsupported pred_tensor shape: {pred_tensor.shape}")
+    # Manually calculate for MaxPool2d
+    if isinstance(module, torch.nn.MaxPool2d):
+        s = module.stride
+        k = module.kernel_size
+        p = module.padding
 
-    # # Flatten
-    # pred_flat = pred_labels.view(-1)
-    # # pred_flat = torch.zeros(N * H * W)
-    # gt_flat = gt_binary.view(N * H * W, num_classes)
-    # valid_pred = (pred_flat >= 0) & (pred_flat < num_classes)
+        # Ensure kernel size and stride are integers
+        k = k if isinstance(k, int) else k[0]
+        s = s if isinstance(s, int) else s[0]
+        p = p if isinstance(p, int) else p[0]
 
-    # # Confusion matrix
-    # confusion_matrix = torch.zeros((num_classes, num_classes), dtype=torch.int64, device=device)
-    # for i in range(pred_flat.shape[0]):
-    #     if not valid_pred[i]:
-    #         print(f" pixel is invalid")
-    #         continue
-    #     y_indices = torch.nonzero(gt_flat[i], as_tuple=False).squeeze()
-    #     # print(y_indices)
-    #     if y_indices.numel() == 0:
-    #         print(gt_flat[i])
-    #         # print(f"error: there isn't any class predicted")
-    #         continue
-    #     x = pred_flat[i].item()
-    #     if y_indices.dim() == 0:
-    #         y = y_indices.item()  # Lấy giá trị duy nhất
-    #         if x == y:
-    #             confusion_matrix[y, y] += 1
-    #         else:
-    #             confusion_matrix[x, y] += 1
-    #     else:
-    #         for y in y_indices:
-    #             y = y.item()
-    #             if x == y:
-    #                 confusion_matrix[y, y] += 1
-    #             else:
-    #                 confusion_matrix[x, y] += 1
+        out_h = math.floor(((data_dims[2] - k + (2 * p)) / s) + 1)
+        out_w = math.floor(((data_dims[3] - k + (2 * p)) / s) + 1)
+        flops = k * k * out_h * out_w * data_dims[1] * data_dims[0]
+        macs = flops / 2  # MaxPool uses FLOPs not MACs directly
+        return int(macs)
 
-    # # Compute mIoU
-    # ious = []
-    # for c in range(num_classes):
-    #     tp = confusion_matrix[c, c]
-    #     pred_sum = confusion_matrix[:, c].sum()
-    #     gt_sum = confusion_matrix[c, :].sum()
-    #     union = pred_sum + gt_sum - tp
-    #     ious.append((tp / union).item() if union > 0 else 0.0)
-    # print(f"total iou {ious}")
-    # return np.mean(ious)
+    # General case: use ptflops
+    try:
+        macs, params = get_model_complexity_info(
+            module, tuple(data_dims[1:]), as_strings=False, print_per_layer_stat=False
+        )
+        macs = 0 if macs is None else macs
+    except Exception as e:
+        print(f"Error getting MACs for module {module.__class__.__name__}: {e}")
+        macs = 0
+    return int(macs * data_dims[0])
 
-# def compute_modified_miou(preds, targets, num_classes=9):
-#     """
-#     preds, targets: Tensor [C, H, W] hoặc [B, C, H, W]
-#     """
-#     if preds.dim() == 4:
-#         preds = preds.flatten(0, 1)
-#         targets = targets.flatten(0, 1)
-
-#     C, H, W = preds.shape
-
-#     # preds, targets: [C, H, W] --> [H, W, C]
-#     preds = preds.permute(1, 2, 0)
-#     targets = targets.permute(1, 2, 0)
-
-#     # Boolean masks
-#     preds_bool = (torch.sigmoid(preds) > 0.5)
-
-#     targets_bool = targets > 0
-
-#     # True Positive: pred đúng ít nhất 1 nhãn
-#     correct = (preds_bool & targets_bool).float()
-
-#     # False Positive: pred có nhãn sai
-#     pred_only = preds_bool & (~targets_bool)
-#     # False Negative: thiếu nhãn
-#     target_only = targets_bool & (~preds_bool)
-
-#     TP = correct.sum(dim=(0, 1))
-#     FP = pred_only.sum(dim=(0, 1))
-#     FN = target_only.sum(dim=(0, 1))
-
-#     ious = TP / (TP + FP + FN + 1e-6)
-#     miou = ious.mean().item()
-
-#     return miou
 
 
 def accuracy(output, target, topk=(1,)):

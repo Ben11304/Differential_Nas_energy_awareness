@@ -49,6 +49,7 @@ parser.add_argument('--train_portion', type=float, default=0.5, help='portion of
 parser.add_argument('--unrolled', action='store_true', default=False, help='use one-step unrolled validation loss')
 parser.add_argument('--arch_learning_rate', type=float, default=0.01, help='learning rate for arch encoding')
 parser.add_argument('--arch_weight_decay', type=float, default=1e-3, help='weight decay for arch encoding')
+parser.add_argument('--rate', type=tuple, default=[1,0], help='weight decay for arch encoding')
 args = parser.parse_args()
 
 
@@ -129,8 +130,12 @@ def main():
     device=args.device
     logging.info("args = %s", args)
     criterion = nn.CrossEntropyLoss().to(device)
-    
-    model = Network(args.init_channels, CIFAR_CLASSES , args.layers, criterion, device=args.device, snn_step=args.snn_step)
+    primitive_sets = [
+    ['conv_3x3', 'sep_conv_3x3','dil_conv_5x5','max_pool_3x3'],  # Cell 1
+    ['max_pool_3x3', 'skip_connect'],  # Cell 2 # Cell 3
+    ]
+
+    model = Network(args.init_channels, CIFAR_CLASSES , primitive_sets, criterion, device=args.device, snn_step=args.snn_step)
     model.to(device)
 
     logging.info("param size = %fMB", utils.count_parameters_in_MB(model))
@@ -158,7 +163,7 @@ def main():
     train_transform, valid_transform = utils._data_transforms_cifar10(args)
     train_data = dset.CIFAR10(root=args.data, train=True, download=True, transform=train_transform)
 
-    num_train = len(train_data)
+    num_train = 50
     # num_train=500
     indices = list(range(num_train))
     split = int(np.floor(args.train_portion * num_train))
@@ -193,8 +198,14 @@ sampler=torch.utils.data.sampler.SubsetRandomSampler(indices[:split]),
         logging.info('genotype = %s', genotype)
 
         # In ma trận alpha
-        logging.info(F.softmax(model.alphas_normal, dim=-1))
-        logging.info(F.softmax(model.alphas_reduce, dim=-1))
+        # Log softmax of each alpha tensor in the lists
+        logging.info("Softmax of alphas_normal:")
+        for i, alpha in enumerate(model.alphas_normal):
+            logging.info(f"Cell {i}: {F.softmax(alpha, dim=-1)}")
+
+        logging.info("Softmax of alphas_reduce:")
+        for i, alpha in enumerate(model.alphas_reduce):
+            logging.info(f"Cell {i}: {F.softmax(alpha, dim=-1)}")
 
         # # training
         # train_acc,train_F1, train_obj , macs = train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, device,args)
@@ -265,10 +276,9 @@ def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, 
             input_search, target_search = next(valid_iter)
 
         input_search = input_search.to(device)
-        target_search = target_search.to(device)
-        rate=[0.9,0.05] #rate of loss accuracy and energy respectively
+        target_search = target_search.to(device) #rate of loss accuracy and energy respectively
         # Architect step
-        architect.step(input_train, target_train, input_search, target_search, lr, optimizer, unrolled=args.unrolled, rate)
+        architect.step(input_train, target_train, input_search, target_search, lr, optimizer, args.unrolled)
 
         
         optimizer.zero_grad()
@@ -288,25 +298,6 @@ def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, 
             "train/step_energy": energy,
             "train/lr": lr
         })
-
-        
-
-        
-        # metrics = compute_metrics(logits, target_train)
-        # objs.update(loss_total.item(), n)
-        # metrics_avg['accuracy'].update(metrics['accuracy'], n)
-        # metrics_avg['f1_macro'].update(metrics['f1_macro'], n)
-
-        # wandb.log({
-        #     "train/step_loss": loss_total.item(),
-        #     "train/step_accuracy": metrics['accuracy'],
-        #     "train/step_f1_macro": metrics['f1_macro'],
-        #     "train/step_energy": energy,
-        #     "train/lr": lr
-        # })
-
-        
-
         pbar.set_postfix({
             "loss_task": objs.avg,
             "accuracy": top5.avg,
@@ -347,17 +338,6 @@ def infer(valid_queue, model, criterion, device):
             top1.update(prec1.item(), n)
             top5.update(prec5.item(), n)
 
-            # metrics = compute_metrics(logits, target_valid)
-            # n = input_valid.size(0)
-            # objs.update(loss.item(), n)
-            # metrics_avg['accuracy'].update(metrics['accuracy'], n)
-            # metrics_avg['f1_macro'].update(metrics['f1_macro'], n)
-
-            # pbar.set_postfix({
-            #     "val_loss": objs.avg,
-            #     "val_accuracy": metrics_avg['accuracy'].avg,
-            #     "val_f1_macro": metrics_avg['f1_macro'].avg,
-            # })
     
             pbar.set_postfix({
                 "val_loss": objs.avg,
