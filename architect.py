@@ -22,7 +22,7 @@ class Architect(object):
             betas=(0.5, 0.999),
             weight_decay=args.arch_weight_decay
         )
-        self.max_seen_mac = torch.tensor(1e-6, device=args.device)
+        self.max_seen_energy  = torch.tensor(1e-6, device=args.device)
         self.max_seen_loss = torch.tensor(1e-6, device=args.device)
 
     def _compute_unrolled_model(self, input, target, eta, network_optimizer):
@@ -80,17 +80,13 @@ class Architect(object):
         output,energy= self.model(input_valid)
         loss_task=self.model._loss(input_valid, target_valid)
         loss_energy=energy
-        self.max_seen_mac = torch.max(self.max_seen_mac * alphaa, loss_energy.detach())
+        self.max_seen_mac = torch.max(self.max_seen_energy * alphaa, loss_energy.detach())
         self.max_seen_loss = torch.max(self.max_seen_loss * alphaa, loss_task.detach())
-        energy_normalized = loss_energy / self.max_seen_mac
+        energy_normalized = loss_energy / self.max_seen_energy 
         loss_task_normalized = loss_task/self.max_seen_loss
         
         # output,energy= self.model(input_valid)
         loss=0.9*loss_task_normalized+0.05*energy_normalized
-        # print(f"-----------------{loss_task}------------")
-        # print(f"-----------------{loss_energy}------------")
-        # loss=energy_normalized
-        # loss=loss_task_normalized
         loss.backward()
 
     def _backward_step_unrolled(self, input_train, target_train, 

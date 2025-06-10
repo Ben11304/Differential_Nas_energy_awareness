@@ -34,18 +34,18 @@ class MixedOp(nn.Module):
         super(MixedOp, self).__init__()
         self._ops = nn.ModuleList()
         self._energy_flags = []
-        self._macs = []
+        self._energy = []
 
         for primitive in primitives:  # Sử dụng primitives được truyền vào
             op = OPS[primitive](C, stride, False)
             self._ops.append(op)
-            self._macs.append(torch.tensor(0.0, dtype=torch.float32))
+            self._energy.append(torch.tensor(0.0, dtype=torch.float32))
             self._energy_flags.append(False)
 
     def forward(self, x, weights):
-        total_macs = sum(w * op.energy for w, op in zip(weights, self._ops))
+        total_energy = sum(w * op.energy for w, op in zip(weights, self._ops))
         result = sum(w * op(x) for w, op in zip(weights, self._ops))
-        return result, total_macs
+        return result, total_energy
 
 class Cell(nn.Module):
     def __init__(self, steps, multiplier, C_prev_prev, C_prev, C, reduction, reduction_prev, primitives):
@@ -73,19 +73,19 @@ class Cell(nn.Module):
         s1 = self.preprocess1(s1)
         states = [s0, s1]
         offset = 0
-        total_cell_macs = 0
+        total_cell_energy = 0
 
         for i in range(self._steps):
             new_state = 0
             for j, h in enumerate(states):
                 op = self._ops[offset + j]
-                out, macs = op(h, weights[offset + j])
+                out, energy = op(h, weights[offset + j])
                 new_state += out
-                total_cell_macs += macs
+                total_cell_energy += energy
             offset += len(states)
             states.append(new_state)
 
-        return torch.cat(states[-self._multiplier:], dim=1), total_cell_macs
+        return torch.cat(states[-self._multiplier:], dim=1), total_cell_energy
 
 class Network(nn.Module):
     def __init__(self, C, num_classes, primitive_sets, criterion,
@@ -145,7 +145,7 @@ class Network(nn.Module):
     def forward(self, input):
         input = input.to(self._device)
         s1 = self.stem(input)
-        total_macs = 0
+        total_energy = 0
         s0 = s1
         for i, cell in enumerate(self.cells):
             if cell.reduction:
@@ -154,9 +154,9 @@ class Network(nn.Module):
                 weights = F.softmax(self.alphas_normal[i], dim=-1)
             s0, s1_mixed = s1, cell(s0, s1, weights)
             s1 = s1_mixed[0]
-            total_macs += s1_mixed[1]
+            total_energy += s1_mixed[1]
         logits = self.head(s1)
-        return logits, total_macs
+        return logits, total_energy
 
     def _loss(self, input, target):
         input = input.to(self._device)
