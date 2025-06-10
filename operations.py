@@ -1,21 +1,14 @@
 import torch
 import torch.nn as nn
-import snntorch as snn
-from snntorch import surrogate
 import pandas as pd
 from ptflops import get_model_complexity_info
 from dl_energy_estimator.energy_estimate import calculate_energy
 import math
-import utils
-# import wandb
 
-# wandb.init(project="nas_energy_monitor", name="energy_log_example")
-from utils import count_module_macs
 
 
 OPS = {
   'none' : lambda C, stride, affine: Zero(stride),
-  # 'avg_pool_3x3': lambda C, stride, affine: AvgPoolMAC(kernel_size=3, stride=stride, padding=1,C=C),
   'max_pool_3x3': lambda C, stride, affine: MaxPoolMAC(kernel_size=3, stride=stride, padding=1,C=C),
   'skip_connect': lambda C, stride, affine: SkipConnect(C, stride, affine=affine),
   'sep_conv_3x3' : lambda C, stride, affine: SepConv(C, C, 3, stride, 1, affine=affine),
@@ -25,13 +18,15 @@ OPS = {
   'dil_conv_5x5' : lambda C, stride, affine: DilConv(C, C, 5, stride, 4, 2, affine=affine),
     'conv_1x1': lambda C, stride, affine: Conv1x1(C, stride, affine),
     'conv_3x3': lambda C, stride, affine: Conv3x3(C, stride, affine),
-    'grouped_conv': lambda C, stride, affine: GroupedConv(C, C, groups=4, stride=stride, padding=1, affine=affine),
+     'grouped_conv': lambda C, stride, affine: GroupedConv(C, C, groups=4, stride=stride, padding=1, affine=affine),
     'alt_sep_conv': lambda C, stride, affine: AltDepthwiseSeparableConv(C, kernel_size=3, stride=stride, padding=1, affine=affine),
     'batchnorm': lambda C, stride, affine: OnlyBN(C, affine),
     'relu': lambda C, stride, affine: OnlyReLU()
-
-
 }
+
+
+
+
 
 class OnlyReLU(nn.Module):
     def __init__(self):
@@ -132,11 +127,28 @@ class GroupedConv(nn.Module):
 
 
 
+# sample = pd.DataFrame([{
+#     "batch_size": 123,
+#     "image_size": 127,
+#     "kernel_size": 7,
+#     "input_size":4,
+#     "output_size":2,
+#     "in_channels": 80,
+#     "out_channels": 29,
+#     "stride": 1,
+#     "padding": 2,
+#     "attributed": "conv2d",
+#     "sub_attributed": "tanh",
+#     "macs":2.18534484e+11
+# }])
+
+
 
 def energy(op,x):
+    # Hàm được sử dụng để tính toán năng lượng tiêu thụ và MACs của một chuỗi các lớp.
     mac_list = []
     energy_list = []
-    current_x = x.clone()  # giữ tensor đang được truyền
+    current_x = x.clone()
     for layer in op:
             if isinstance(layer, nn.BatchNorm2d):
                 energy_list.append(0)
@@ -149,30 +161,21 @@ def energy(op,x):
             if sample_df is not None:
                 attributed = sample_df["attributed"].iloc[0]
                 sample_df["macs"]=mac
-                    # if attributed=='conv2d':
-                    #     print(sample_df.head(1))
                 predicted_energy = calculate_energy(sample_df)
                 energy_list.append(predicted_energy)
-                    # if sample_df["sub_attributed"].iloc[0] != 'none':
-                    #     sub=sample_df["sub_attributed"].iloc[0]
-                        
-                    #     print(sample_df.head(1)) 
-                # print(f"📌 Dự đoán năng lượng tiêu thụ của {attributed} : {predicted_energy}")
             else:
                 print(f"sample is none, layer {layer}")
                     
                 # forward để cập nhật shape
             with torch.no_grad():
                 current_x = layer(current_x)
-                    
     energy = sum(energy_list)
-    # print(f"total energy {energy}")
     MACs = sum(mac_list)
-    # print(f"total macs {MACs}")
     return energy,MACs
 
 
 def create_energy_sample(layer, input_tensor):
+    # Tạo DataFrame mô tả thông tin sẵn sàng cho dự đoán năng lượng bằng mô hình linear.
     sample = {"batch_size": input_tensor.shape[0]}
     C, H, W = input_tensor.shape[1:]
 
@@ -188,7 +191,7 @@ def create_energy_sample(layer, input_tensor):
             "input_size": layer.in_channels,
             "output_size": layer.out_channels,
             "sub_attributed": "none",
-            "macs": 0  # bạn cần tự điền thủ công MACs nếu không dùng ptflops
+            "macs": 0 
         })
     elif isinstance(layer, nn.ReLU):
         sample.update({
@@ -217,6 +220,40 @@ def create_energy_sample(layer, input_tensor):
     return pd.DataFrame([sample])
 
 
+def count_module_macs(module, data_dims) -> int:
+    # Hàm tính toán số lượng MACs cho một module cụ thể.
+
+    if isinstance(module, torch.nn.BatchNorm2d):
+        print("BatchNorm2d detected")
+        return 0
+
+    # Manually calculate for MaxPool2d
+    if isinstance(module, torch.nn.MaxPool2d):
+        s = module.stride
+        k = module.kernel_size
+        p = module.padding
+
+        # Ensure kernel size and stride are integers
+        k = k if isinstance(k, int) else k[0]
+        s = s if isinstance(s, int) else s[0]
+        p = p if isinstance(p, int) else p[0]
+
+        out_h = math.floor(((data_dims[2] - k + (2 * p)) / s) + 1)
+        out_w = math.floor(((data_dims[3] - k + (2 * p)) / s) + 1)
+        flops = k * k * out_h * out_w * data_dims[1] * data_dims[0]
+        macs = flops / 2  # MaxPool uses FLOPs not MACs directly
+        return int(macs)
+
+    # General case: use ptflops
+    try:
+        macs, _ = get_model_complexity_info(
+            module, tuple(data_dims[1:]), as_strings=False, print_per_layer_stat=False
+        )
+        macs = 0 if macs is None else macs
+    except Exception as e:
+        print(f"Error getting MACs for module {module.__class__.__name__}: {e}")
+        macs = 0
+    return int(macs * data_dims[0])
 
 
 
@@ -283,9 +320,6 @@ class MaxPoolMAC(nn.Module):
 
 
 
-
-
-
 class ReLUConvBN(nn.Module):
 
   def __init__(self, C_in, C_out, kernel_size, stride, padding, affine=True):
@@ -312,7 +346,7 @@ class DilConv(nn.Module):
     self.stride = stride
     self.padding = padding
     self.dilation = dilation
-    self.MACs = 5  
+    self.MACs = 5  # 📌 MAC counter
     self.op = nn.Sequential(
         nn.ReLU(inplace=False),
         nn.Conv2d(C_in, C_in, kernel_size=kernel_size, stride=stride,
@@ -322,7 +356,7 @@ class DilConv(nn.Module):
     )
     self.MACs = 0
     self.mac_list = [] 
-    self.energy_list = []
+    self.energy_list = [] # list of MACs for each sublayer
     self.energy_flag = 0
     self.energy=0
 
@@ -376,17 +410,6 @@ class Identity(nn.Module):
     return x
 
 
-# class Zero(nn.Module):
-
-#   def __init__(self, stride):
-#     super(Zero, self).__init__()
-#     self.stride = stride
-
-#   def forward(self, x):
-#     if self.stride == 1:
-#       return x.mul(0.)
-#     return x[:,:,::self.stride,::self.stride].mul(0.)
-
 class Zero(nn.Module):
     def __init__(self, stride):
         super(Zero, self).__init__()
@@ -399,7 +422,6 @@ class Zero(nn.Module):
         if self.stride == 1:
             return x.mul(0.)
         return x[:, :, ::self.stride, ::self.stride].mul(0.)
-
 
 
 class FactorizedReduce(nn.Module):
@@ -419,7 +441,7 @@ class FactorizedReduce(nn.Module):
             self.mac_list = []
             self.energy_list = []
             sample_df = create_energy_sample(self.relu, x)
-            mac = utils.count_module_macs(self.relu, x.shape)
+            mac = count_module_macs(self.relu, x.shape)
             self.mac_list.append(mac)
             if sample_df is not None:
                 sample_df["macs"]=mac
@@ -428,7 +450,7 @@ class FactorizedReduce(nn.Module):
             x = self.relu(x)
 
             sample_df = create_energy_sample(self.conv_1, x)
-            mac = utils.count_module_macs(self.conv_1, x.shape)
+            mac = count_module_macs(self.conv_1, x.shape)
             self.mac_list.append(mac)
             if sample_df is not None:
                 sample_df["macs"]=mac
@@ -436,7 +458,7 @@ class FactorizedReduce(nn.Module):
                 self.energy_list.append(predicted_energy)
 
             sample_df = create_energy_sample(self.conv_2, x[:, :, 1:, 1:])
-            mac = utils.count_module_macs(self.conv_2, x[:, :, 1:, 1:].shape)
+            mac = count_module_macs(self.conv_2, x[:, :, 1:, 1:].shape)
             self.mac_list.append(mac)
             if sample_df is not None:
                 sample_df["macs"]=mac
@@ -447,57 +469,10 @@ class FactorizedReduce(nn.Module):
             out = self.bn(out)
             self.energy_flag = 1
             self.energy = sum(self.energy_list)
-            # print(f"total energy {self.energy}")
             self.MACs = sum(self.mac_list)
 
         x = self.relu(x)
         out = torch.cat([self.conv_1(x), self.conv_2(x[:, :, 1:, 1:])], dim=1)
         out = self.bn(out)
         return out
-
-
-
-
-
-
-# class FactorizedReduce(nn.Module):
-#     def __init__(self, C_in, C_out, affine=True):
-#         super(FactorizedReduce, self).__init__()
-#         assert C_out % 2 == 0
-
-#         # ReLU (đặt riêng)
-#         self.relu = nn.ReLU(inplace=False)
-
-#         # Hai nhánh conv riêng biệt
-#         self.path1 = nn.Conv2d(C_in, C_out // 2, 1, stride=2, padding=0, bias=False)
-#         self.path2 = nn.Conv2d(C_in, C_out // 2, 1, stride=2, padding=0, bias=False)
-
-#         # BatchNorm sau khi concat
-#         self.bn = nn.BatchNorm2d(C_out, affine=affine)
-
-#         # Gộp tất cả vào 1 danh sách các layer để duyệt được
-#         self.op = nn.ModuleList([
-#             self.relu,
-#             self.path1,
-#             self.path2,
-#             self.bn
-#         ])
-
-#         # Cho phép ghi nhận energy
-#         self.energy = 0
-#         self.MACs = 0
-#         self.energy_flag = 0
-
-#     def forward(self, x):
-#         x_relu = self.relu(x)
-#         out1 = self.path1(x_relu)
-#         out2 = self.path2(x_relu[:, :, 1:, 1:])
-#         out = torch.cat([out1, out2], dim=1)
-#         out = self.bn(out)
-#         return out
-
-#     def __iter__(self):
-#         # Cho phép for layer in model:
-#         return iter(self.op)
-
 

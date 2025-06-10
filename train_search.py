@@ -11,11 +11,15 @@ import torch.nn as nn
 import torch.utils
 import torch.nn.functional as F
 import torchvision.datasets as dset
-import torch.backends.cudnn as cudnn
 import copy
-from tqdm import tqdm  # Thêm vào đầu file nếu chưa có
+from tqdm import tqdm 
 import wandb
 import warnings
+import torch
+import os
+from torch.utils.data import Dataset
+import glob
+
 warnings.filterwarnings("ignore", message="X does not have valid feature names")
 
 
@@ -87,14 +91,8 @@ class DiceLoss(nn.Module):
         dice = (2 * intersection + self.eps) / (union + self.eps)
         return 1 - dice.mean()
 
-
-Agricultural_classes=8
 CIFAR_CLASSES = 10
 
-import torch
-import os
-from torch.utils.data import Dataset
-import glob
 
 class CustomPTSegmentationDataset(Dataset):
     def __init__(self, root_dir, transform=None):
@@ -113,13 +111,9 @@ class CustomPTSegmentationDataset(Dataset):
     def __getitem__(self, idx):
         image = torch.load(self.image_paths[idx]).float()  # Normalize
         label = torch.load(self.label_paths[idx]).float()
-        # image = image.permute(0, 2, 1)  # [C, H, W]
-        # label = label.permute(0, 2, 1)
         label = label[:8]
         if self.transform:
             image, label = self.transform(image, label)
-
-        # print(f"size anh : {image.size()}, {label.size()}")
         return image, label
 
 
@@ -130,12 +124,17 @@ def main():
     device=args.device
     logging.info("args = %s", args)
     criterion = nn.CrossEntropyLoss().to(device)
+
+
+    #chỉnh sửa primitive huấn luyện tại đây
     primitive_sets = [
     ['conv_3x3', 'sep_conv_3x3','dil_conv_5x5','max_pool_3x3'],  # Cell 1
-    ['max_pool_3x3', 'skip_connect'],  # Cell 2 # Cell 3
+    ['max_pool_3x3', 'skip_connect'],  # Cell 2
     ]
 
-    model = Network(args.init_channels, CIFAR_CLASSES , primitive_sets, criterion, device=args.device, snn_step=args.snn_step)
+
+
+    model = Network(args.init_channels, CIFAR_CLASSES , primitive_sets, criterion, device=args.device)
     model.to(device)
 
     logging.info("param size = %fMB", utils.count_parameters_in_MB(model))
@@ -147,23 +146,10 @@ def main():
         weight_decay=args.weight_decay
     )
 
-    # full_dataset = CustomPTSegmentationDataset(root_dir="../../../Agriculture-Vision-2021_processed_zip/trainrandcrop256/")
-    # indices = list(range(5000))
-    # np.random.shuffle(indices)
-    # train_indices = indices[:2500]
-    # val_indices = indices[4500:5000]
-
-    # train_queue = torch.utils.data.DataLoader(full_dataset, batch_size=args.batch_size,
-    #     sampler=torch.utils.data.SubsetRandomSampler(train_indices), num_workers=2)
-    # valid_queue = torch.utils.data.DataLoader(full_dataset, batch_size=args.batch_size,
-    #     sampler=torch.utils.data.SubsetRandomSampler(val_indices), num_workers=2)
-
-
-
     train_transform, valid_transform = utils._data_transforms_cifar10(args)
     train_data = dset.CIFAR10(root=args.data, train=True, download=True, transform=train_transform)
 
-    num_train = 50
+    num_train = len(train_data)
     # num_train=500
     indices = list(range(num_train))
     split = int(np.floor(args.train_portion * num_train))
@@ -207,14 +193,6 @@ sampler=torch.utils.data.sampler.SubsetRandomSampler(indices[:split]),
         for i, alpha in enumerate(model.alphas_reduce):
             logging.info(f"Cell {i}: {F.softmax(alpha, dim=-1)}")
 
-        # # training
-        # train_acc,train_F1, train_obj , macs = train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, device,args)
-        # macs=float(macs)
-        # logging.info("train mIoU: %.4f | train F1: %.4f  | Loss: %.4f | Avg MACs: %s", train_acc,train_F1, train_obj , macs)
-
-        # # validation
-        # valid_acc,valid_F1, valid_obj, valid_macs = infer(valid_queue, model, criterion, device)
-        # valid_macs=format_macs(valid_macs)
         train_top1, train_top5, train_objs, energy =train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, device,args)
         logging.info("train Top 1: %.4f | train Top 5: %.4f  | Loss: %.4f | Total energy: %s", train_top1, train_top5, train_objs, energy)
 
@@ -233,8 +211,6 @@ sampler=torch.utils.data.sampler.SubsetRandomSampler(indices[:split]),
         })
 
         utils.save(model, os.path.join(args.save, 'weights.pt'))
-        # utils.reset_weights_only(model, initial_weights)
-        
 def compute_metrics(preds, labels, threshold=0.5):
     preds = torch.sigmoid(preds) > threshold
     labels = labels > 0.2
@@ -254,14 +230,13 @@ def compute_metrics(preds, labels, threshold=0.5):
 
 def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, device, args):
     objs = utils.AvgrageMeter()
-    # metrics_avg = {'accuracy': utils.AvgrageMeter(), 'f1_macro': utils.AvgrageMeter()}
     objs = utils.AvgrageMeter()
     top1 = utils.AvgrageMeter()
     top5 = utils.AvgrageMeter()
 
     model.train()
     valid_iter = iter(valid_queue)
-    pbar = tqdm(train_queue, desc="[Train]", leave=False) # trọng số cho phần mac penalty
+    pbar = tqdm(train_queue, desc="[Train]", leave=False) 
 
     for step, (input_train, target_train) in enumerate(pbar):
         n = input_train.size(0)
@@ -276,7 +251,7 @@ def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, 
             input_search, target_search = next(valid_iter)
 
         input_search = input_search.to(device)
-        target_search = target_search.to(device) #rate of loss accuracy and energy respectively
+        target_search = target_search.to(device) 
         # Architect step
         architect.step(input_train, target_train, input_search, target_search, lr, optimizer, args.unrolled)
 
@@ -301,11 +276,8 @@ def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, 
         pbar.set_postfix({
             "loss_task": objs.avg,
             "accuracy": top5.avg,
-            # "f1_macro": metrics_avg['f1_macro'].avg,
             "energy": f"{energy}"
         })
-
-    # return metrics_avg['accuracy'].avg, metrics_avg['f1_macro'].avg, objs.avg, energy
     return top1.avg, top5.avg, objs.avg, energy
 
 
@@ -313,12 +285,9 @@ def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, 
 
 
 def infer(valid_queue, model, criterion, device):
-    # objs = utils.AvgrageMeter
     objs = utils.AvgrageMeter()
     top1 = utils.AvgrageMeter()
     top5 = utils.AvgrageMeter()
-    # metrics_avg = {'accuracy': utils.AvgrageMeter(), 'f1_macro': utils.AvgrageMeter()}
-
     model.eval()
 
     pbar = tqdm(valid_queue, desc="[Valid]", leave=False)
@@ -343,25 +312,7 @@ def infer(valid_queue, model, criterion, device):
                 "val_loss": objs.avg,
                 "val_accuracy": top1.avg,
             })
-
-    # return metrics_avg['accuracy'].avg, metrics_avg['f1_macro'].avg, objs.avg
     return top1.avg, top5.avg, objs.avg
-
-def format_macs(value):
-    if value >= 1e9:
-        return f"{value / 1e9:.2f} G"
-    elif value >= 1e6:
-        return f"{value / 1e6:.2f} M"
-    elif value >= 1e3:
-        return f"{value / 1e3:.2f} K"
-    elif value >= 1:
-        return f"{value:.2f}"
-    elif value >= 1e-3:
-        return f"{value * 1e3:.2f} e-3"
-    elif value >= 1e-6:
-        return f"{value * 1e6:.2f} e-6"
-    else:
-        return f"{value:.2e}"
 
 
 
