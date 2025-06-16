@@ -1,0 +1,95 @@
+---
+# -------------------------------
+# This configuration file is used to automate the model-fitting process and to run some predefined estimates
+# -------------------------------
+
+# specify a set of key:value (<architecture>:<batch-size>) pairs to compute the energy-consumption for
+# supported architectures: alexnet, vgg11/13/16
+estimation_to_compute:
+  alexnet: 5
+  vgg11: 16
+  vgg13: 64
+  vgg16: 256
+
+# path to the parent directory where the data lies to train the layer-type predictors
+data_directory: '/estimator/data/'
+# for each model specified in "run_fit_models.py" a configuration must be specified here
+model_configurations:
+  # ----
+  # Conv2d Module
+  # ----
+  conv2d:
+    # can be used to specify a model by its (partial) name; must correspond to the beginning of the model name
+    # if empty, the latest model will be chosen for the given module type
+    model_version: ''
+    # name of the data-file in 'estimator/data/' to be used for training
+    data_file: "conv2d.csv"
+    # a list of base-features that should be used to train the model
+    # ATTENTION: feature configurations have to match the specified model versions when doing inference!
+    base_features: [ 'batch_size', 'image_size', 'kernel_size', 'in_channels', 'out_channels', 'stride', 'padding' ]
+    # a set of boolean triggers that can be used to experiment with different feature sets
+    features_config:
+      # specifies whether base features should be used
+      enable_base_features: False
+      # specifies whether log transformed versions of base-features should be used
+      enable_log_features: False
+      # specifies whether the MAC count should be used as a feature
+      enable_macs_feature: True
+  # ----
+  # MaxPool2d Module
+  # ----
+  maxpool2d:
+    model_version: ''
+    data_file: "maxpool2d.csv"
+    base_features: [ 'batch_size','image_size','kernel_size','in_channels','stride','padding' ]
+    features_config:
+      enable_base_features: True
+      enable_log_features: True
+      enable_macs_feature: True
+  # ----
+  # Linear Module
+  # ----
+  linear:
+    model_version: ''
+    data_file: "linear.csv"
+    base_features: [ 'batch_size','input_size','output_size' ]
+    features_config:
+      enable_base_features: False
+      enable_log_features: False
+      enable_macs_feature: True
+  # ----
+  # Activations
+  # ----
+  relu:
+    model_version: ''
+    data_file: "relu.csv"
+    base_features: [ 'batch_size', 'input_size' ]
+    features_config:
+      enable_base_features: False
+      enable_log_features: False
+      enable_macs_feature: True
+  sigmoid:
+    model_version: ''
+    data_file: "sigmoid.csv"
+    base_features: [ 'batch_size', 'input_size' ]
+    features_config:
+      enable_base_features: True
+      enable_log_features: False
+      enable_macs_feature: False
+  softmax:
+    model_version: ''
+    data_file: "softmax.csv"
+    base_features: [ 'batch_size', 'input_size' ]
+    features_config:
+      enable_base_features: True
+      enable_log_features: False
+      enable_macs_feature: False
+  tanh:
+    model_version: ''
+    data_file: "tanh.csv"
+    base_features: [ 'batch_size', 'input_size' ]
+    features_config:
+      enable_base_features: True
+      enable_log_features: False
+      enable_macs_feature: False
+
