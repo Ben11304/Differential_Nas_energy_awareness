@@ -39,7 +39,7 @@ This repository contains the implementation of a **Differential Neural Architect
   Supports training based on the final architecture (genotype).
 
 - **`dl_energy_estimator/`**  
-  Contains a model to predict energy consumption of operations.
+  Contains models to predict energy consumption of some operations.
 
 ---
 
@@ -48,7 +48,7 @@ This repository contains the implementation of a **Differential Neural Architect
 ### ✅ Prerequisites
 
 - Install dependencies 
-- Unzip the `dl_energy_estimator` module
+- Wandb is required to tracking training process
 
 ---
 
