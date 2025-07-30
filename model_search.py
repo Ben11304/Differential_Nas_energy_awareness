@@ -47,6 +47,46 @@ class MixedOp(nn.Module):
         result = sum(w * op(x) for w, op in zip(weights, self._ops))
         return result, total_energy
 
+class singleinput_Cell(nn.Module):
+    def __init__(self, steps, multiplier, C_prev_prev, C_prev, C, reduction, reduction_prev, primitives):
+        super(Cell, self).__init__()
+        self.reduction = reduction
+        self.preprocess1 = ReLUConvBN(C_prev, C, 1, 1, 0, affine=False)
+
+        self._steps = steps
+        self._multiplier = multiplier
+
+        self._ops = nn.ModuleList()
+
+        ''' This is a primaly important part, initialize the architecture inside a cell, an it doesn't throughout the training'''
+        for i in range(self._steps):
+            for j in range(2 + i):
+                stride = 2 if reduction and j < 2 else 1
+                op = MixedOp(C, stride, primitives)  # Truyền primitives riêng cho cell
+                self._ops.append(op)
+
+
+
+    def forward(self, s0, s1, weights):
+        # s0 = self.preprocess0(s0) ready for deleted
+        s1 = self.preprocess1(s1)
+        states = [s1]
+        offset = 0
+        total_cell_energy = 0
+
+        for i in range(self._steps):
+            new_state = 0
+            for j, h in enumerate(states):
+                op = self._ops[offset + j]
+                out, energy = op(h, weights[offset + j])
+                new_state += out
+                total_cell_energy += energy
+            offset += len(states)
+            states.append(new_state)
+
+        return torch.cat(states[-self._multiplier:], dim=1), total_cell_energy
+
+
 class Cell(nn.Module):
     def __init__(self, steps, multiplier, C_prev_prev, C_prev, C, reduction, reduction_prev, primitives):
         super(Cell, self).__init__()
@@ -62,16 +102,20 @@ class Cell(nn.Module):
         self._multiplier = multiplier
 
         self._ops = nn.ModuleList()
+
+        ''' This is a primaly important part, initialize the architecture inside a cell, an it doesn't throughout the training'''
         for i in range(self._steps):
             for j in range(2 + i):
                 stride = 2 if reduction and j < 2 else 1
                 op = MixedOp(C, stride, primitives)  # Truyền primitives riêng cho cell
                 self._ops.append(op)
 
+
+
     def forward(self, s0, s1, weights):
-        s0 = self.preprocess0(s0)
+        # s0 = self.preprocess0(s0)
         s1 = self.preprocess1(s1)
-        states = [s0, s1]
+        states = [s1]
         offset = 0
         total_cell_energy = 0
 
@@ -79,7 +123,7 @@ class Cell(nn.Module):
             new_state = 0
             for j, h in enumerate(states):
                 op = self._ops[offset + j]
-                out, energy = op(h, weights[offset + j])
+                out, energy = op(h, weights[offset + j+1])
                 new_state += out
                 total_cell_energy += energy
             offset += len(states)

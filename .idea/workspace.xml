@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="376565a7-292f-4852-9624-d421b290b4ed" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/architect.py" beforeDir="false" afterPath="$PROJECT_DIR$/architect.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/data_collection_config.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/data_collectors/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/data_collectors/_data_collector.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/data_collectors/architectures.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/data_collectors/conv2d.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/data_collectors/linear.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/data_collectors/maxpool2d.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/data_collectors/relu.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/data_collectors/sigmoid.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/data_collectors/softmax.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/data_collectors/tanh.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/estimator/architecture-estimates.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/dl_energy_estimator/estimator/architecture-estimates.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/experiments/ablation-analysis-conv2d-model.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/experiments/modeling-activation-energies.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/experiments/modeling-conv2d-energies.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/experiments/modeling-linear-energies.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/experiments/modeling-maxpool2d-energies.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/experiments/module-wise-energy-analysis.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/give_RAPL_read_access.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/iclr_2023_workshop_poster.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/iclr_2023_workshop_poster.pdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/model_fitting_and_estimation_config.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/requirements.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/run_data_collection.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dl_energy_estimator/run_estimation.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/model_search.py" beforeDir="false" afterPath="$PROJECT_DIR$/model_search.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/train.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/train_search.py" beforeDir="false" afterPath="$PROJECT_DIR$/train_search.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 8
+}]]></component>
+  <component name="ProjectId" id="30ZzhsqgDvbqxxHT9we8WUgJCIb" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-b26f3e71634d-JavaScript-PY-251.26094.141" />
+        <option value="bundled-python-sdk-9f8e2b94138c-36ea0e71a18c-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.26094.141" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="376565a7-292f-4852-9624-d421b290b4ed" name="Changes" comment="" />
+      <created>1753850005753</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1753850005753</updated>
+      <workItem from="1753850006939" duration="2316000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/model_search.py</url>
+          <line>89</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>

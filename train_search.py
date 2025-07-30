@@ -253,7 +253,7 @@ def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr, 
         input_search = input_search.to(device)
         target_search = target_search.to(device) 
         # Architect step
-        architect.step(input_train, target_train, input_search, target_search, lr, optimizer, args.unrolled)
+        architect.step(input_train, target_train, input_search, target_search, lr, optimizer, args.unrolled) # chỉ dùng train data khi unrolled ( hiện tại chưa)
 
         
         optimizer.zero_grad()

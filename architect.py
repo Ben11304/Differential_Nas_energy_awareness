@@ -76,9 +76,11 @@ class Architect(object):
         """
         Tính gradient alpha đơn giản: loss trên batch valid wrt alpha
         """
-        alphaa = 0.9
         output,energy= self.model(input_valid)
         loss_task=self.model._loss(input_valid, target_valid)
+
+
+
         loss_energy=energy
         self.max_seen_mac = torch.max(self.max_seen_energy * alphaa, loss_energy.detach())
         self.max_seen_loss = torch.max(self.max_seen_loss * alphaa, loss_task.detach())

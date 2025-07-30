@@ -21,22 +21,14 @@ from torch.utils.data import Dataset, Subset
 
 
 Genotype = namedtuple('Genotype', 'normal normal_concat reduce reduce_concat')
-SNN_DARTS = Genotype(normal=[('max_pool_3x3', 0), ('max_pool_3x3', 1), ('max_pool_3x3', 0), ('snn_multistep_3x3', 1), ('snn_multistep_3x3', 1), ('snn_multistep_5x5', 3), ('max_pool_3x3', 0), ('snn_multistep_3x3', 4)], normal_concat=range(2, 6), reduce=[('avg_pool_3x3', 1), ('snn_multistep_5x5', 0), ('skip_connect', 0), ('snn_multistep_3x3', 2), ('skip_connect', 3), ('max_pool_3x3', 2), ('snn_multistep_5x5', 2), ('snn_multistep_3x3', 3)], reduce_concat=range(2, 6)) #mIoU: 0.8560 | Loss: 0.1157 | Avg MACs: 280.51 e-6
-
-SNN_DARTS = Genotype(normal=[('sep_conv_3x3', 1), ('max_pool_3x3', 0), ('dil_conv_3x3', 2), ('sep_conv_3x3', 0), ('sep_conv_3x3', 0), ('sep_conv_3x3', 1), ('dil_conv_3x3', 2), ('dil_conv_3x3', 4)], normal_concat=range(2, 6), reduce=[('skip_connect', 1), ('skip_connect', 0), ('dil_conv_3x3', 0), ('sep_conv_5x5', 2), ('sep_conv_3x3', 0), ('sep_conv_5x5', 3), ('sep_conv_5x5', 2), ('sep_conv_3x3', 3)], reduce_concat=range(2, 6))
-
-
-# New_dart= Genotype(normal=[('conv_1x1', 0), ('conv_1x1', 1), ('dil_conv_3x3', 2), ('grouped_conv', 1), ('max_pool_3x3', 3), ('conv_1x1', 2), ('alt_sep_conv', 3), ('conv_1x1', 4)], normal_concat=range(2, 6), reduce=[('skip_connect', 1), ('conv_1x1', 0), ('dil_conv_5x5', 1), ('skip_connect', 0), ('grouped_conv', 1), ('sep_conv_5x5', 3), ('grouped_conv', 1), ('sep_conv_3x3', 2)], reduce_concat=range(2, 6))
-
-# 05/17 03:02:29 PM Validation mIoU: 0.9393 | Val F1: 0.0092  | Loss: 0.1768 | Avg MACs: tensor(0.0026, device='cuda:0')
-# 05/17 03:02:29 PM epoch 6 lr 1.000000e-03
-New_dart = Genotype(normal=[('skip_connect', 1), ('skip_connect', 0), ('skip_connect', 2), ('skip_connect', 0), ('skip_connect', 3), ('skip_connect', 1), ('skip_connect', 2), ('skip_connect', 3)], normal_concat=range(2, 6), reduce=[('grouped_conv', 1), ('grouped_conv', 0), ('skip_connect', 2), ('grouped_conv', 0), ('skip_connect', 3), ('skip_connect', 2), ('skip_connect', 4), ('skip_connect', 2)], reduce_concat=range(2, 6))
 
 
 # 05/18 11:59:55 AM train mIoU: 0.9416 | train F1: 0.0207  | Loss: 0.1833 | Avg MACs: 0.0015698829665780067
 # 05/18 11:59:57 AM Validation mIoU: 0.9385 | Val F1: 0.0713  | Loss: 0.1995 | Avg MACs: tensor(0.0016, device='cuda:0')
 # 05/18 11:59:58 AM epoch 8 lr 1.000000e-03
-New_dart = Genotype(normal=[('skip_connect', 1), ('skip_connect', 0), ('skip_connect', 2), ('skip_connect', 1), ('skip_connect', 3), ('skip_connect', 2), ('skip_connect', 3), ('skip_connect', 2)], normal_concat=range(2, 6), reduce=[('max_pool_3x3', 1), ('max_pool_3x3', 0), ('skip_connect', 2), ('max_pool_3x3', 1), ('skip_connect', 3), ('skip_connect', 2), ('skip_connect', 4), ('skip_connect', 3)], reduce_concat=range(2, 6))
+New_dart = Genotype(normal=
+                    [('skip_connect', 1), ('skip_connect', 0), ('skip_connect', 2), ('skip_connect', 1), ('skip_connect', 3), ('skip_connect', 2), ('skip_connect', 3), ('skip_connect', 2)], normal_concat=range(2, 6),
+                      reduce=[('max_pool_3x3', 1), ('max_pool_3x3', 0), ('skip_connect', 2), ('max_pool_3x3', 1), ('skip_connect', 3), ('skip_connect', 2), ('skip_connect', 4), ('skip_connect', 3)], reduce_concat=range(2, 6))
 
 
 import torch
