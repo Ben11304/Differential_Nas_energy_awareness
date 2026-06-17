@@ -1,0 +1,197 @@
+{
+  "run_name": "macs_hybrid_s2024_ew0.00",
+  "variant": "hybrid_resnet18",
+  "dataset": "DFUC2021_train_4class_labeled_only",
+  "cost_unit": "MACs_per_sample",
+  "seed": 2024,
+  "acc_weight": 1.0,
+  "energy_weight": 0.0,
+  "epochs": 20,
+  "final_val_acc": 64.53333326975505,
+  "best_val_acc": 67.3333332379659,
+  "final_val_energy": 3907554.0,
+  "final_train_energy": 3914750.5,
+  "history": [
+    {
+      "epoch": 0,
+      "train_acc": 42.6666668732961,
+      "val_acc": 45.33333342870076,
+      "train_energy": 3737387.9375,
+      "val_energy": 3738398.0,
+      "train_loss": 1.2973634265263876,
+      "val_loss": 1.7954625752766926
+    },
+    {
+      "epoch": 1,
+      "train_acc": 64.66666668256124,
+      "val_acc": 62.53333357175191,
+      "train_energy": 3757724.7916666665,
+      "val_energy": 3771483.0,
+      "train_loss": 0.9313551244735718,
+      "val_loss": 0.9673833614985148
+    },
+    {
+      "epoch": 2,
+      "train_acc": 74.80000014305115,
+      "val_acc": 62.800000015894575,
+      "train_energy": 3806101.5208333335,
+      "val_energy": 3837455.5,
+      "train_loss": 0.686692122300466,
+      "val_loss": 0.9463124481836954
+    },
+    {
+      "epoch": 3,
+      "train_acc": 80.00000022252401,
+      "val_acc": 62.800000111262,
+      "train_energy": 3882740.2916666665,
+      "val_energy": 3921906.5,
+      "train_loss": 0.5455320957501729,
+      "val_loss": 1.0456004381179809
+    },
+    {
+      "epoch": 4,
+      "train_acc": 84.26666658719381,
+      "val_acc": 64.26666684150696,
+      "train_energy": 3962584.0,
+      "val_energy": 3988789.5,
+      "train_loss": 0.42144797174135845,
+      "val_loss": 0.9540072431564331
+    },
+    {
+      "epoch": 5,
+      "train_acc": 91.46666685740153,
+      "val_acc": 62.00000004768371,
+      "train_energy": 4024531.6666666665,
+      "val_energy": 4047376.25,
+      "train_loss": 0.2983262099424998,
+      "val_loss": 1.1714311710993448
+    },
+    {
+      "epoch": 6,
+      "train_acc": 92.80000006357828,
+      "val_acc": 64.40000017484029,
+      "train_energy": 4070771.375,
+      "val_energy": 4089828.0,
+      "train_loss": 0.23769245064258576,
+      "val_loss": 1.1961865781148275
+    },
+    {
+      "epoch": 7,
+      "train_acc": 95.2,
+      "val_acc": 61.19999993642171,
+      "train_energy": 4097524.3541666665,
+      "val_energy": 4099448.5,
+      "train_loss": 0.15928795506556828,
+      "val_loss": 1.347370779355367
+    },
+    {
+      "epoch": 8,
+      "train_acc": 95.4666667620341,
+      "val_acc": 61.733333333333334,
+      "train_energy": 4107842.0833333335,
+      "val_energy": 4112682.5,
+      "train_loss": 0.15721408265829087,
+      "val_loss": 1.419607029914856
+    },
+    {
+      "epoch": 9,
+      "train_acc": 96.80000009536744,
+      "val_acc": 66.26666671435038,
+      "train_energy": 4112956.2291666665,
+      "val_energy": 4110192.75,
+      "train_loss": 0.10854683031638464,
+      "val_loss": 1.451516221364339
+    },
+    {
+      "epoch": 10,
+      "train_acc": 97.73333349227906,
+      "val_acc": 64.53333333333333,
+      "train_energy": 4100879.5,
+      "val_energy": 4091508.0,
+      "train_loss": 0.08993550745646159,
+      "val_loss": 1.4848506444295246
+    },
+    {
+      "epoch": 11,
+      "train_acc": 98.93333333333334,
+      "val_acc": 63.4666668732961,
+      "train_energy": 4075404.2708333335,
+      "val_energy": 4067308.75,
+      "train_loss": 0.0690264797906081,
+      "val_loss": 1.4559644174575805
+    },
+    {
+      "epoch": 12,
+      "train_acc": 98.93333339691162,
+      "val_acc": 65.73333353996277,
+      "train_energy": 4058017.1041666665,
+      "val_energy": 4051463.75,
+      "train_loss": 0.06596030906836192,
+      "val_loss": 1.3528137989044189
+    },
+    {
+      "epoch": 13,
+      "train_acc": 98.66666669845581,
+      "val_acc": 65.06666684150696,
+      "train_energy": 4040368.7916666665,
+      "val_energy": 4028594.0,
+      "train_loss": 0.048172243257363634,
+      "val_loss": 1.4026476771036784
+    },
+    {
+      "epoch": 14,
+      "train_acc": 99.33333336512247,
+      "val_acc": 65.20000020662944,
+      "train_energy": 4017580.1458333335,
+      "val_energy": 4004780.5,
+      "train_loss": 0.04468955417474111,
+      "val_loss": 1.4060117816925048
+    },
+    {
+      "epoch": 15,
+      "train_acc": 99.6,
+      "val_acc": 65.46666674613952,
+      "train_energy": 3990075.6666666665,
+      "val_energy": 3981356.5,
+      "train_loss": 0.040865057716766996,
+      "val_loss": 1.3855140651067097
+    },
+    {
+      "epoch": 16,
+      "train_acc": 99.46666666666667,
+      "val_acc": 67.3333332379659,
+      "train_energy": 3978490.5208333335,
+      "val_energy": 3967832.0,
+      "train_loss": 0.04307288693388303,
+      "val_loss": 1.3049856700897218
+    },
+    {
+      "epoch": 17,
+      "train_acc": 100.0,
+      "val_acc": 65.33333353996277,
+      "train_energy": 3956181.8958333335,
+      "val_energy": 3947265.0,
+      "train_loss": 0.03221873559057713,
+      "val_loss": 1.274673898379008
+    },
+    {
+      "epoch": 18,
+      "train_acc": 99.73333336512248,
+      "val_acc": 64.80000020662943,
+      "train_energy": 3937659.8333333335,
+      "val_energy": 3926291.0,
+      "train_loss": 0.04198536888758341,
+      "val_loss": 1.3022394742965697
+    },
+    {
+      "epoch": 19,
+      "train_acc": 99.6,
+      "val_acc": 64.53333326975505,
+      "train_energy": 3914750.5,
+      "val_energy": 3907554.0,
+      "train_loss": 0.0444701991379261,
+      "val_loss": 1.2269889809290568
+    }
+  ],
+  "genotype": "Genotype(normal=[('skip_connect', 1), ('sep_conv_3x3', 0), ('dil_conv_5x5', 1), ('skip_connect', 0), ('conv_3x3', 0), ('sep_conv_3x3', 3), ('dil_conv_5x5', 1), ('skip_connect', 0), ('sep_conv_3x3', 1), ('max_pool_3x3', 0), ('sep_conv_3x3', 0), ('sep_conv_3x3', 1), ('sep_conv_3x3', 0), ('sep_conv_3x3', 1), ('sep_conv_3x3', 0), ('sep_conv_3x3', 1)], normal_concat=range(2, 6), reduce=[('dil_conv_5x5', 1), ('conv_3x3', 0), ('max_pool_3x3', 1), ('conv_3x3', 2), ('dil_conv_5x5', 0), ('conv_3x3', 2), ('max_pool_3x3', 3), ('max_pool_3x3', 0), ('sep_conv_3x3', 0), ('skip_connect', 1), ('sep_conv_3x3', 1), ('skip_connect', 2), ('max_pool_3x3', 1), ('max_pool_3x3', 3), ('max_pool_3x3', 3), ('skip_connect', 1)], reduce_concat=range(2, 6))"
+}
