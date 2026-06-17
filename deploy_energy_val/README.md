@@ -8,10 +8,12 @@ the physical measurement (this bundle does NOT contain energy numbers).
 ## Layout
 ```
 deploy_energy_val/
-  code/         genotype→net + ONNX export (model.py, operations.py, utils.py,
-                genotypes.py, model_search*.py, architect.py, export_onnx.py,
-                eval_genotype_dfuc.py)
+  code/         genotype→net + ONNX export + Pi4 measurement harness
+                (model.py, operations.py, utils.py, genotypes.py,
+                model_search*.py, architect.py, export_onnx.py,
+                eval_genotype_dfuc.py, measure_pi4.py)
   genotypes/    30 searched genotype JSONs (simple/hybrid × 3 seeds × 5 EW)
+  pi4_recording_sheet_template.csv  manual power-reading sheet (1 row/repeat/model)
   onnx_models/  4 front-point ONNX graphs (1×3×96×96, opset13, dynamic batch)
   checkpoints/  4 best.pth (weights + genotype_str + build meta + test_acc)
   MANIFEST.json model_id ↔ test_acc ↔ params ↔ genotype source ↔ parity
@@ -32,7 +34,9 @@ via ONNX Runtime CPU (parity rtol 1e-3).
 - Weights are from a **retrain** (train_seed 42) of each genotype — test_acc in
   MANIFEST is that retrain's §0k block+dhash test acc (the weights you measure).
   May differ ~noise from the search-sweep eval array (cudnn nondeterministic).
-- `measure_pi4.py` is **NOT included** — owned by ENERGY (not yet provided).
+- `measure_pi4.py` (ENERGY-owned) IS included in `code/`: `--mode run` (auto
+  latency/throughput/memory/thermal on Pi) + `--mode merge` (manual power from the
+  recording sheet → J/inference). Protocol: ENERGY/protocol_pi4_1gb_paperB.md.
 - Energy/MACs side-channel in `operations.py` is no-op'd during ONNX export
   (graph/weights unaffected); the Pi runs pure ONNX Runtime, no DART code.
 - ONNX op set is plain conv/bn/relu/add/pool/gemm — portable to ARM CPU.

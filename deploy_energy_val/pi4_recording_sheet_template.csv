@@ -1,0 +1,11 @@
+# Pi4 manual energy recording sheet — 1 dòng / repeat / model
+# AUTO = harness in ra (chép vào); MANUAL = user đọc tay trên meter
+# pp.A (steady-state W): điền idle_W + active_W ; để delta_mWh trống
+# pp.B (mWh counter):    điền idle_W + delta_mWh (zero counter trước, chạy N inf) ; active_W trống
+# >=5 repeat/model. Lỡ 1 repeat: để TRỐNG + note, KHÔNG điền số ước lượng.
+model_id,repeat,idle_W,active_W,delta_mWh,n_inferences,duration_s,temp_start_C,temp_end_C,throttled,note
+EXAMPLE_simple_ew0.9,1,,,,<<AUTO>>,<<AUTO>>,<<AUTO>>,<<AUTO>>,<<AUTO>>,
+EXAMPLE_simple_ew0.9,2,,,,,,,,,
+EXAMPLE_simple_ew0.9,3,,,,,,,,,
+EXAMPLE_simple_ew0.9,4,,,,,,,,,
+EXAMPLE_simple_ew0.9,5,,,,,,,,,
